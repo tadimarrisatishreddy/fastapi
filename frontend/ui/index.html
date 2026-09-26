@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Message Checker</title>
+<style>
+  :root {
+    --ink: #1c2321;
+    --paper: #eef1ef;
+    --card: #ffffff;
+    --line: #d7dcd9;
+    --muted: #667070;
+    --spam: #b3432b;
+    --spam-bg: #fbeae5;
+    --ham: #2f6b4f;
+    --ham-bg: #e7f2ec;
+    --accent: #2f6b4f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Georgia", "Times New Roman", serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+
+  main {
+    width: 100%;
+    max-width: 620px;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+  }
+
+  p.sub {
+    margin: 0 0 32px;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 46ch;
+    line-height: 1.5;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .hint {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  button {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 3px;
+    padding: 11px 22px;
+    cursor: pointer;
+  }
+
+  button:hover { background: #34403c; }
+  button:disabled { background: var(--muted); cursor: not-allowed; }
+
+  .result {
+    margin-top: 20px;
+    padding: 18px 20px;
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: none;
+  }
+
+  .result.show { display: block; }
+
+  .result.spam { background: var(--spam-bg); border: 1px solid var(--spam); }
+  .result.ham { background: var(--ham-bg); border: 1px solid var(--ham); }
+
+  .verdict {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .result.spam .verdict { color: var(--spam); }
+  .result.ham .verdict { color: var(--ham); }
+
+  .prob-track {
+    margin-top: 10px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  .prob-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .result.spam .prob-fill { background: var(--spam); }
+  .result.ham .prob-fill { background: var(--ham); }
+
+  .prob-label {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .error {
+    margin-top: 20px;
+    padding: 14px 18px;
+    border-radius: 3px;
+    background: #fbeae5;
+    border: 1px solid #b3432b;
+    color: #b3432b;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    display: none;
+  }
+
+  .error.show { display: block; }
+
+  footer {
+    margin-top: 20px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Message Checker</h1>
+  <p class="sub">Paste in a text or email message and check whether the model thinks it's spam.</p>
+
+  <div class="card">
+    <textarea id="messageInput" placeholder="e.g. Congratulations! You've won a $1000 gift card, click here to claim..."></textarea>
+    <div class="row">
+      <span class="hint" id="charHint">Powered by your local model</span>
+      <button id="checkBtn" onclick="checkMessage()">Check message</button>
+    </div>
+
+    <div class="result" id="result">
+      <div class="verdict" id="verdict"></div>
+      <div class="prob-track"><div class="prob-fill" id="probFill" style="width:0%"></div></div>
+      <div class="prob-label" id="probLabel"></div>
+    </div>
+
+    <div class="error" id="error"></div>
+  </div>
+
+  <footer>Requests go to a local API at http://127.0.0.1:8000/predict</footer>
+</main>
+
+<script>
+  const API_URL = "http://127.0.0.1:8000/predict";
+
+  const input = document.getElementById("messageInput");
+  const btn = document.getElementById("checkBtn");
+  const resultBox = document.getElementById("result");
+  const verdictEl = document.getElementById("verdict");
+  const probFill = document.getElementById("probFill");
+  const probLabel = document.getElementById("probLabel");
+  const errorBox = document.getElementById("error");
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) checkMessage();
+  });
+
+  async function checkMessage() {
+    const message = input.value.trim();
+    errorBox.classList.remove("show");
+    resultBox.classList.remove("show");
+
+    if (!message) {
+      showError("Type or paste a message first.");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || `Server responded with ${res.status}`);
+      }
+
+      const data = await res.json();
+      showResult(data);
+    } catch (err) {
+      showError(
+        err.message.includes("fetch")
+          ? "Can't reach the API. Make sure your FastAPI server is running (uvicorn main:app --reload)."
+          : err.message
+      );
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Check message";
+    }
+  }
+
+  function showResult(data) {
+    const isSpam = data.prediction === "SPAM";
+    const pct = Math.round(data.spam_probability * 100);
+
+    resultBox.className = "result show " + (isSpam ? "spam" : "ham");
+    verdictEl.textContent = isSpam ? "Likely spam" : "Looks legitimate";
+    probFill.style.width = pct + "%";
+    probLabel.textContent = `Spam probability: ${pct}%`;
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add("show");
+  }
+</script>
+</body>
+</html>
