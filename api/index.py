@@ -1,13 +1,12 @@
 """
-FastAPI backend for the spam detection model (local dev entry point).
+FastAPI backend for the spam detection model — Vercel entry point.
 
-Run with:
-    uvicorn frontend.main:app --reload
-
-Then open http://127.0.0.1:8000/docs for Swagger UI.
-For the UI: open frontend/ui/index.html directly in a browser.
-
-Vercel entry point is api/index.py (not this file).
+Routes:
+  GET  /              -> serves the UI (HTML response)
+  GET  /health        -> health check JSON
+  POST /predict       -> classify a single message
+  POST /predict-batch -> classify multiple messages at once
+  GET  /docs          -> Swagger UI
 """
 
 import re
@@ -21,16 +20,20 @@ from pydantic import BaseModel, Field
 from typing import List
 
 # ---------------------------------------------------------------
-# Paths — resolved relative to THIS file
+# Paths — resolved relative to THIS file so they work on Vercel.
+# Repo layout:
+#   /api/index.py          <- this file
+#   /spam_model.joblib     <- one level up
+#   /vectorizer.joblib     <- one level up
+#   /frontend/ui/index.html
 # ---------------------------------------------------------------
-_HERE           = Path(__file__).parent
-_ROOT           = _HERE.parent
+_ROOT = Path(__file__).parent.parent          # repo root
 MODEL_PATH      = _ROOT / "spam_model.joblib"
 VECTORIZER_PATH = _ROOT / "vectorizer.joblib"
-HTML_PATH       = _HERE / "ui" / "index.html"
+HTML_PATH       = _ROOT / "frontend" / "ui" / "index.html"
 
 # ---------------------------------------------------------------
-# App setup
+# App
 # ---------------------------------------------------------------
 app = FastAPI(title="Spam Detection API", version="1.0")
 
@@ -49,13 +52,13 @@ try:
     vectorizer = joblib.load(VECTORIZER_PATH)
 except FileNotFoundError as e:
     raise RuntimeError(
-        f"Could not load model/vectorizer files.\n"
-        f"Expected: {MODEL_PATH}\n         {VECTORIZER_PATH}\n"
+        f"Could not load model/vectorizer. "
+        f"Expected at: {MODEL_PATH} and {VECTORIZER_PATH}. "
         f"Original error: {e}"
     )
 
 # ---------------------------------------------------------------
-# Text cleaning (must match training exactly)
+# Text cleaning (must match training)
 # ---------------------------------------------------------------
 def clean_text(text: str) -> str:
     text = text.lower()
@@ -69,7 +72,7 @@ def clean_text(text: str) -> str:
 # Schemas
 # ---------------------------------------------------------------
 class MessageRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="The text message to classify")
+    message: str = Field(..., min_length=1, description="Text message to classify")
 
 class BatchMessageRequest(BaseModel):
     messages: List[str] = Field(..., min_length=1, description="List of messages to classify")
@@ -80,7 +83,7 @@ class PredictionResponse(BaseModel):
     spam_probability: float
 
 # ---------------------------------------------------------------
-# Core predict helper
+# Core classify helper
 # ---------------------------------------------------------------
 def classify(message: str) -> PredictionResponse:
     cleaned = clean_text(message)
@@ -98,6 +101,7 @@ def classify(message: str) -> PredictionResponse:
 # ---------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def serve_ui():
+    """Serve the frontend HTML directly — works on Vercel serverless."""
     return HTMLResponse(content=HTML_PATH.read_text(encoding="utf-8"))
 
 

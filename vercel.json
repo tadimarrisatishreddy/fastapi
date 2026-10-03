@@ -1,14 +1,14 @@
 {
   "builds": [
     {
-      "src": "frontend/main.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "frontend/main.py"
+      "dest": "api/index.py"
     }
   ]
 }

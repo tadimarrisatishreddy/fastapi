@@ -4,5 +4,3 @@ joblib
 scikit-learn
 numpy
 pandas
-python-multipart
-aiofiles
