@@ -3,5 +3,3 @@ uvicorn
 joblib
 scikit-learn
 numpy
-pandas
-aiofiles
