@@ -194,11 +194,14 @@
     <div class="error" id="error"></div>
   </div>
 
-  <footer>Requests go to a local API at http://127.0.0.1:8000/predict</footer>
+  <footer>Spam Detection — powered by FastAPI &amp; Logistic Regression</footer>
 </main>
 
 <script>
-  const API_URL = "http://127.0.0.1:8000/predict";
+  // In production (Vercel) the API is on the same host; locally fall back to 8000.
+  const API_URL = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+    ? "http://127.0.0.1:8000/predict"
+    : window.location.origin + "/predict";
 
   const input = document.getElementById("messageInput");
   const btn = document.getElementById("checkBtn");

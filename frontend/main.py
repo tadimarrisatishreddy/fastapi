@@ -14,17 +14,21 @@ Then open http://127.0.0.1:8000/docs for the interactive Swagger UI to test it.
 
 import re
 import string
+from pathlib import Path
 import joblib
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import List
 
 # ---------------------------------------------------------------------
-# CONFIG - update these paths to match where your files actually are
+# CONFIG — paths are relative to this file so they work on Vercel too
 # ---------------------------------------------------------------------
-MODEL_PATH = "spam_model.joblib"
-VECTORIZER_PATH = "vectorizer.joblib"
+_HERE = Path(__file__).parent
+MODEL_PATH = _HERE.parent / "spam_model.joblib"
+VECTORIZER_PATH = _HERE.parent / "vectorizer.joblib"
 
 # ---------------------------------------------------------------------
 # App setup
@@ -40,6 +44,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve the static UI from frontend/ui/
+_UI_DIR = _HERE / "ui"
+app.mount("/ui", StaticFiles(directory=_UI_DIR, html=True), name="ui")
+
+
+@app.get("/", include_in_schema=False)
+def serve_ui():
+    """Redirect root to the frontend UI."""
+    return FileResponse(_UI_DIR / "index.html")
 
 # ---------------------------------------------------------------------
 # Load model + vectorizer once at startup (not per-request - that would
@@ -104,7 +118,7 @@ def classify(message: str) -> PredictionResponse:
 # ---------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------
-@app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "message": "Spam Detection API is running"}
 
